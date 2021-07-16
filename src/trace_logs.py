@@ -7,7 +7,7 @@ import api.eth_requests as eth_requests
 from typing import Dict, Union, Tuple, List
 import logging
 
-logging.basicConfig(level=logging.DEBUG)
+logging.basicConfig(level=logging.INFO)
 
 
 async def read_trace_logs(blocks: List[Tuple[int, int]], session: aiohttp.ClientSession) -> Dict[Tuple[int, int], dict]:
