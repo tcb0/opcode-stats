@@ -1,6 +1,5 @@
 from enum import Enum
 
-
 class StatsType(str, Enum):
     OPCODES_PER_BLOCK = 'OPCODES_PER_BLOCK'
     TOTAL_AMOUNT_OPCODES = 'TOTAL_AMOUNT_OPCODES'

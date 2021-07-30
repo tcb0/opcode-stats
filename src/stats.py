@@ -22,6 +22,7 @@ def make_stats(trace_logs: Dict[Tuple[int, int], dict]) -> Dict[Tuple[int, int],
 
     return stats
 
+
 def make_opcodes_per_block_stats(tx_opcodes: dict, dir_path: str = '.') -> dict:
     logging.debug("Calculating opcode per block stats...")
     opcodes_per_block = get_num_opcodes_per_block(tx_opcodes)

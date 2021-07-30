@@ -4,7 +4,7 @@ import os.path
 import aiohttp
 import asyncio
 import api.eth_requests as eth_requests
-from src import stats, trace_logs, visualisations
+from src import stats, trace_logs, visualisations, tx_processing
 from typing import Tuple, List
 import logging
 
@@ -22,6 +22,32 @@ def get_latest_block() -> int:
     return int(latest_block, 16)
 
 
+def write_tx_hashes(start_block: int, end_block: int, tx_hashes: dict):
+    with open(f"./{start_block}_{end_block}/tx_hashes.json", "w") as f:
+        f.write(json.dumps(tx_hashes))
+
+
+def write_opcodes(start_block: int, end_block: int, opcodes: dict):
+    with open(f"./{start_block}_{end_block}/tx_opcode_stats.json", "w") as f:
+        f.write(json.dumps(opcodes))
+
+
+def read_tx_hashes(start_block: int, end_block: int):
+    with open(f"./{start_block}_{end_block}/tx_hashes.json", "r") as f:
+        return json.loads(f.read())
+
+
+def read_opcodes(start_block: int, end_block: int):
+    with open(f"./{start_block}_{end_block}/tx_opcode_stats.json", "r") as f:
+        return json.loads(f.read())
+
+
+def read_all_opcodes(blocks: List[Tuple[int, int]]):
+    logs = dict()
+    for start_block, end_block in blocks:
+        logs[(start_block, end_block)] = read_opcodes(start_block, end_block)
+
+    return logs
 
 
 def init(blocks: List[Tuple[int, int]]):
@@ -44,29 +70,57 @@ def test():
     print(debug_trace)
 
 
-async def main():
-    latest_block = get_latest_block()
+async def fetch_blocks_tx_hashes(session: aiohttp.ClientSession, blocks: List[Tuple[int, int]]):
 
-    # start_block, end_block tuples
-    # samples of 1000 blocks at different points in history
-    # blocks = [(latest_block - 1000, latest_block), (latest_block - 150_000, latest_block - 149_000), (latest_block - 300_000, latest_block - 299_000)]
-    # blocks = [(latest_block - 100, latest_block)]
-    #
-    # with open(f'./{latest_block}.json', 'w') as f:
-    #     f.write(json.dumps(blocks))
+    for start_block, end_block in blocks:
+        tx_hashes = await tx_processing.get_block_txs(session, start_block, end_block)
+        write_tx_hashes(start_block, end_block, tx_hashes)
 
-    with open(f'./12833389.json', 'r') as f:
-        blocks = json.loads(f.read())
 
-    init(blocks)
-    logging.debug("Block dirs initiated.")
+async def fetch_blocks_debug_logs(session: aiohttp.ClientSession, blocks: List[Tuple[int, int]]):
 
+    for start_block, end_block in blocks:
+        tx_hashes = read_tx_hashes(start_block, end_block)
+        opcodes = await trace_logs.get_opcodes_for_tx_hashes(session, tx_hashes)
+        write_opcodes(start_block, end_block, opcodes)
+
+
+
+async def main(fetch_block_data=False):
+
+    latest_block = 12_926_310
+
+    blocks = []
     async with aiohttp.ClientSession() as session:
-        logs = await trace_logs.read_trace_logs(blocks, session)
+        if fetch_block_data:
+            block_interval_size = 100
+            block_interval_difference = 3_000_000
+            num_iterations = 4
+            for i in range(0, num_iterations):
+                print(f'iteration: {i}')
+                start_block = latest_block - (block_interval_difference * i) - block_interval_size
+                blocks.append((start_block, start_block + block_interval_size))
+            #
+            with open(f'./{latest_block}.json', 'w') as f:
+                f.write(json.dumps(blocks))
+
+            init(blocks)
+            logging.debug("Block dirs initiated.")
+            await fetch_blocks_tx_hashes(session, blocks)
+        else:
+            with open(f'./{latest_block}.json', 'r') as f:
+                blocks = json.loads(f.read())
+
+        await fetch_blocks_debug_logs(session, blocks)
+        logs = read_all_opcodes(blocks)
         block_stats = stats.make_stats(logs)
         visualisations.make_visualisations(block_stats)
+    #
+
+
+
 
 
 if __name__ == '__main__':
-    asyncio.run(main())
+    asyncio.run(main(False))
     # test()

@@ -6,7 +6,8 @@ from dotenv import load_dotenv
 from typing import Union, Any, List, Tuple
 load_dotenv()
 
-GETH_URL = os.environ.get('GETH_URL')
+ARCHIVE_GETH_URL = os.environ.get('ARCHIVE_GETH_URL')
+INFURA_GETH_URL = os.environ.get('INFURA_GETH_URL')
 
 
 
@@ -19,12 +20,12 @@ def debug_tx_mock(tx_hash: str) -> dict:
 
 def get_block_by_number(block_num: Union[int, str], full_txs: bool = False) -> dict:
     try:
-
         if isinstance(block_num, int):
             block_num = hex(block_num)
 
-        url = f"{GETH_URL}"
+        url = f"{INFURA_GETH_URL}"
         body = {
+            "jsonrpc": "2.0",
             "id": 1,
             "method": "eth_getBlockByNumber",
             "params": [block_num, full_txs]
@@ -39,8 +40,9 @@ def get_block_by_number(block_num: Union[int, str], full_txs: bool = False) -> d
 
 def get_tx_by_hash(tx_hash: str):
     try:
-        url = f"{GETH_URL}"
+        url = f"{INFURA_GETH_URL}"
         body = {
+            "jsonrpc": "2.0",
             "id": 4,
             "method": "eth_getTransactionByHash",
             "params": [tx_hash]
@@ -56,8 +58,9 @@ def get_tx_by_hash(tx_hash: str):
 
 def debug_tx(tx_hash: str) -> Union[dict, None]:
     try:
-        url = f"{GETH_URL}"
+        url = f"{ARCHIVE_GETH_URL}"
         body = {
+            "jsonrpc": "2.0",
             "id": 5,
             "method": "debug_traceTransaction",
             "params": [tx_hash]
@@ -70,10 +73,11 @@ def debug_tx(tx_hash: str) -> Union[dict, None]:
         return None
 
 
-async def debug_tx_async(tx_hash: str, session: aiohttp.ClientSession) -> Tuple[Union[dict, None], str]:
+async def debug_tx_async(session: aiohttp.ClientSession, tx_hash: str) -> Tuple[Union[dict, None], str]:
     try:
-        url = f"{GETH_URL}"
+        url = f"{ARCHIVE_GETH_URL}"
         body = {
+            "jsonrpc": "2.0",
             "id": 5,
             "method": "debug_traceTransaction",
             "params": [tx_hash, {"disableStack": True, "disableMemory": True, "disableStorage": True}]
@@ -86,27 +90,60 @@ async def debug_tx_async(tx_hash: str, session: aiohttp.ClientSession) -> Tuple[
         return None, tx_hash
 
 
-def is_syncing():
+async def get_tx_receipt_async(session: aiohttp.ClientSession, tx_hash: str):
     try:
-        url = f"{GETH_URL}"
+        url = f"{INFURA_GETH_URL}"
         body = {
-            "id": 1,
-            "method": "eth_syncing",
-            "params": []
+            "jsonrpc": "2.0",
+            "id": 4,
+            "method": "eth_getTransactionReceipt",
+            "params": [tx_hash]
         }
-        r = requests.post(url, json=body)
-        r.raise_for_status()
-        data = r.json()
-        return data.get('result')
+        async with session.post(url=url, json=body) as response:
+            data = await response.json()
+            return data.get('result')
     except Exception as e:
-        raise Exception(e)
+        return None
+
+
+async def get_block_async(session: aiohttp.ClientSession, block_num: Union[int, str], full_txs: bool = False):
+    try:
+        if isinstance(block_num, int):
+            block_num = hex(block_num)
+
+        url = f"{INFURA_GETH_URL}"
+        body = {
+            "jsonrpc": "2.0",
+            "id": 1,
+            "method": "eth_getBlockByNumber",
+            "params": [block_num, full_txs]
+        }
+        async with session.post(url=url, json=body) as response:
+            data = await response.json()
+            return data.get('result')
+    except Exception as e:
+        return None
+
+# def get_block_by_number(block_num: Union[int, str], full_txs: bool = False) -> dict:
+#     try:
+#         if isinstance(block_num, int):
+#             block_num = hex(block_num)
+#
+#         url = f"{INFURA_GETH_URL}"
+#         body = {
+#             "jsonrpc": "2.0",
+#             "id": 1,
+#             "method": "eth_getBlockByNumber",
+#             "params": [block_num, full_txs]
+#         }
 
 
 def make_call(method_name: str, params: list = None) -> Any:
     try:
         params = params if params else []
-        url = f"{GETH_URL}"
+        url = f"{INFURA_GETH_URL}"
         body = {
+            "jsonrpc": "2.0",
             "id": 1,
             "method": method_name,
             "params": params

@@ -47,7 +47,24 @@ async def get_opcodes_for_txs(start_block: int, end_block: int, session: aiohttp
         block_data = eth_requests.get_block_by_number(block_num, True)
         filtered_tx_hashes = get_filtered_tx_hashes(block_data.get('transactions'))
 
-        debug_traces = await asyncio.gather(*[eth_requests.debug_tx_async(tx_hash, session) for tx_hash in filtered_tx_hashes])
+        debug_traces = await asyncio.gather(*[eth_requests.debug_tx_async(session, tx_hash) for tx_hash in filtered_tx_hashes])
+
+        for trace, tx_hash in debug_traces:
+            if trace:
+                data[block_num][tx_hash] = get_opcode_counts_from_tx_debug_trace(trace)
+
+    return data
+
+
+async def get_opcodes_for_tx_hashes(session: aiohttp.ClientSession, block_data: Dict[int, List[str]]) -> Dict[int, Dict[str, Dict[str, int]]]:
+    """Get opcode counts for transactions that appear in the blocks: [start_block, end_block). """
+
+    data: Dict[int, Dict[str, Dict[str, int]]] = dict()
+
+    for block_num, tx_hashes in block_data.items():
+        data[block_num] = dict()
+
+        debug_traces = await asyncio.gather(*[eth_requests.debug_tx_async(session, tx_hash) for tx_hash in tx_hashes])
 
         for trace, tx_hash in debug_traces:
             if trace:
