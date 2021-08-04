@@ -18,7 +18,9 @@ def make_stats(trace_logs: Dict[Tuple[int, int], dict]) -> Dict[Tuple[int, int],
         stats[(start_block, end_block)][StatsType.TOTAL_AMOUNT_OPCODES] = make_total_amount_opcodes_stats(tx_opcodes, dir_path)
         stats[(start_block, end_block)][StatsType.OPCODE_COUNTS] = make_opcode_counts_stats(tx_opcodes, dir_path)
         stats[(start_block, end_block)][StatsType.OPCODE_STATS] = make_opcode_stats(tx_opcodes, dir_path)
-
+        opcode_frequencies = {opcode: opcode_data['frequency'] for opcode, opcode_data in stats[(start_block, end_block)][StatsType.OPCODE_STATS].items()}
+        opcode_frequencies = {k: v for k, v in sorted(opcode_frequencies.items(), key=lambda item: item[1])}
+        stats[(start_block, end_block)][StatsType.OPCODE_BLOCK_FREQUENCY] = opcode_frequencies
 
     return stats
 
@@ -61,7 +63,6 @@ def make_opcode_stats(tx_opcodes: dict, dir_path: str = '.') -> dict:
     logging.debug(f"Opcode stats calculated and saved to file in  {dir_path} .")
 
     return opcode_stats
-
 
 def get_num_opcodes_per_block(tx_opcodes: Dict[int, Dict[str, Dict[str, int]]], start_block: Union[int, None] = None, end_block: Union[int, None] = None) -> Dict[int, int]:
     """Return the number of unique opcodes (opcode count, not the quantities of each opcode) that appeared in a block.

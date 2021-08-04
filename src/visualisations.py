@@ -1,6 +1,9 @@
 import matplotlib.pyplot as plt
 import numpy as np
+import pandas
 import json
+import seaborn as sns
+
 from json2html import json2html
 
 from typing import Dict, Tuple
@@ -50,6 +53,31 @@ def opcode_count_chart(chart_name: str, opcode_counts: Dict[str, int]):
     fig.savefig(f"charts/{chart_name}.png")
 
 
+def opcode_frequencies_chart_seaborn(chart_name: str, opcode_frequencies: Dict[str, int], start_block: int, end_block: int):
+    opcodes = {k:v for k, v in enumerate(list(opcode_frequencies.keys()))}
+    frequencies = {k:v for k, v in enumerate(list(opcode_frequencies.values()))}
+
+    opcode_freq_dict = {"opcode": opcodes, "block_frequency": frequencies}
+    opcode_freq_df = pandas.DataFrame.from_dict(opcode_freq_dict)
+    sns.set_context(font_scale=0.9)
+    sns.set_theme()
+
+    g = sns.catplot(x="opcode", y="block_frequency", kind="bar", data=opcode_freq_df,  palette="crest", height=8, aspect=30/8)
+    # plt.tight_layout()
+    ax = g.facet_axis(0, 0)
+
+    # iterate through the axes containers
+    for c in ax.containers:
+        labels = [int(v.get_height()) for v in c]
+        ax.bar_label(c, labels=labels, label_type='edge')
+
+    plt.xticks(rotation=90)
+    plt.subplots_adjust(bottom=0.25, left=0.03)
+    plt.legend(title=f"Opcode frequencies, blocks: {start_block} - {end_block}", loc='upper left')
+
+    plt.show()
+    g.savefig(f"charts/{chart_name}.png")
+
 def make_visualisations(blocks_stats: Dict[Tuple[int, int], Dict[StatsType, dict]]):
 
     for (start_block, end_block), data in blocks_stats.items():
@@ -59,30 +87,27 @@ def make_visualisations(blocks_stats: Dict[Tuple[int, int], Dict[StatsType, dict
                 name = f"opcodes_per_block_{start_block}_{end_block}"
                 frequencies_chart(name, stats, 'Num opcodes', 'Block number',
                                   f"Unique opcodes per block ({start_block}, {end_block}).", 'Num opcodes')
-                create_html_table(
-                    name, stats
-                )
+
 
             elif stats_type == StatsType.TOTAL_AMOUNT_OPCODES:
                 name = f"total_opcodes_per_block_{start_block}_{end_block}"
                 frequencies_chart(name, stats, 'Num opcodes', 'Block number',
                                   f"Total opcodes per block ({start_block}, {end_block}).", 'Total num opcodes')
-                create_html_table(
-                    name, stats
-                )
+
             elif stats_type == StatsType.OPCODE_COUNTS:
                 name = f"opcode_counts_{start_block}_{end_block}"
                 opcode_counts = {k: v for k, v in sorted(stats.items(), reverse=True, key=lambda item: item[1])}
                 opcode_count_chart(name, opcode_counts)
-                create_html_table(
-                    name, opcode_counts
-                )
+
                 create_opcode_counts_md_table(name, opcode_counts)
 
                 sstats(opcode_counts)
             elif stats_type == StatsType.OPCODE_STATS:
                 name = f"opcode_stats_{start_block}_{end_block}"
                 create_opcode_stats_md_table(name, stats, start_block, end_block)
+            elif stats_type == StatsType.OPCODE_BLOCK_FREQUENCY:
+                name = f"opcode_frequencies_{start_block}_{end_block}"
+                opcode_frequencies_chart_seaborn(name, stats, start_block, end_block)
 
 
 def sstats(opcode_counts):

@@ -4,7 +4,7 @@ import os.path
 import aiohttp
 import asyncio
 import api.eth_requests as eth_requests
-from src import stats, trace_logs, visualisations, tx_processing
+from src import stats, trace_logs, visualisations, tx_processing, utils
 from typing import Tuple, List
 import logging
 
@@ -87,17 +87,16 @@ async def fetch_blocks_debug_logs(session: aiohttp.ClientSession, blocks: List[T
 
 
 async def main(fetch_block_data=False):
-
     latest_block = 12_926_310
 
     blocks = []
     async with aiohttp.ClientSession() as session:
         if fetch_block_data:
+            logging.debug("Fetching block data...")
             block_interval_size = 100
             block_interval_difference = 3_000_000
             num_iterations = 4
             for i in range(0, num_iterations):
-                print(f'iteration: {i}')
                 start_block = latest_block - (block_interval_difference * i) - block_interval_size
                 blocks.append((start_block, start_block + block_interval_size))
             #
@@ -105,20 +104,25 @@ async def main(fetch_block_data=False):
                 f.write(json.dumps(blocks))
 
             init(blocks)
-            logging.debug("Block dirs initiated.")
+            logging.debug("Block dirs initiated, fetching blocks...")
             await fetch_blocks_tx_hashes(session, blocks)
+            logging.debug("Block tx hashes fetched.")
+            await fetch_blocks_debug_logs(session, blocks)
+            logging.debug("Block debug logs obtained.")
         else:
             with open(f'./{latest_block}.json', 'r') as f:
                 blocks = json.loads(f.read())
 
-        await fetch_blocks_debug_logs(session, blocks)
         logs = read_all_opcodes(blocks)
         block_stats = stats.make_stats(logs)
         visualisations.make_visualisations(block_stats)
+
+        # block_stat_key = list(block_stats.keys())[0]
+        # start_block, end_block = block_stat_key
+        # opcode_frequencies = block_stats[block_stat_key][utils.StatsType.OPCODE_BLOCK_FREQUENCY]
+        # name = f"opcode_frequencies_{start_block}_{end_block}"
+        # visualisations.make_opcode_frequencies_chart_seaborn(name, opcode_frequencies, start_block, end_block)
     #
-
-
-
 
 
 if __name__ == '__main__':
